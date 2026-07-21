@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07c160">
+<title>环境巡检</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --green:#07c160; --green-d:#06ad56; --green-l:#e8f8ef;
+    --red:#fa5151; --red-l:#fdecec;
+    --orange:#ff9d3b;
+    --t1:#1a1a1a; --t2:#666; --t3:#999;
+    --bg:#f4f5f7; --card:#fff; --line:#ececec;
+  }
+  html,body{ background:var(--bg); color:var(--t1); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; font-size:15px; line-height:1.5; }
+  body{ min-height:100vh; padding-bottom:96px; }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 14px; }
+
+  /* 顶部区域条 */
+  .topbar{ background:var(--green); color:#fff; padding:14px 16px calc(14px + env(safe-area-inset-top)); padding-top:calc(14px + env(safe-area-inset-top)); }
+  .topbar .ttl{ font-size:13px; opacity:.9; display:flex; align-items:center; gap:6px; }
+  .topbar .area{ font-size:22px; font-weight:600; margin-top:4px; }
+  .topbar .area .tag{ display:inline-block; font-size:12px; background:rgba(255,255,255,.22); padding:2px 8px; border-radius:10px; margin-left:8px; vertical-align:middle; font-weight:400; }
+
+  /* 进度条 */
+  .prog{ background:var(--card); }
+  .prog .bar{ height:4px; background:var(--line); position:relative; }
+  .prog .bar i{ display:block; height:100%; width:0; background:var(--green); transition:width .3s; }
+  .prog .txt{ padding:9px 16px; font-size:12px; color:var(--t3); display:flex; justify-content:space-between; }
+
+  .card{ background:var(--card); border-radius:12px; margin-top:12px; overflow:hidden; }
+  .card .h{ padding:14px 16px 6px; font-size:15px; font-weight:600; display:flex; align-items:center; gap:7px; }
+  .card .h .dot{ width:4px; height:14px; background:var(--green); border-radius:2px; }
+  .card .h .sub{ font-size:12px; color:var(--t3); font-weight:400; margin-left:auto; }
+
+  /* 输入项 */
+  .row{ padding:12px 16px; border-top:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  .row:first-of-type{ border-top:none; }
+  .row label{ width:78px; color:var(--t2); font-size:14px; flex-shrink:0; }
+  .row input[type=text]{ flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:14px; background:#fafafa; }
+  .row input[type=text]:focus{ outline:none; border-color:var(--green); background:#fff; }
+  .row .val{ flex:1; font-size:14px; color:var(--t1); }
+
+  /* 检查项 */
+  .item{ padding:13px 16px; border-top:1px solid var(--line); }
+  .item:first-of-type{ border-top:none; }
+  .item .name{ font-size:15px; margin-bottom:9px; display:flex; align-items:center; gap:8px; }
+  .item .name .idx{ width:18px; height:18px; border-radius:50%; background:var(--green-l); color:var(--green-d); font-size:11px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .opts{ display:flex; gap:10px; }
+  .opts button{ flex:1; padding:10px 0; border:1.5px solid var(--line); background:#fff; border-radius:8px; font-size:14px; color:var(--t2); display:flex; align-items:center; justify-content:center; gap:5px; transition:all .15s; }
+  .opts button .ico{ width:16px; height:16px; border-radius:50%; border:1.5px solid currentColor; display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+  .opts button.on.pass{ border-color:var(--green); background:var(--green-l); color:var(--green-d); }
+  .opts button.on.pass .ico{ background:var(--green); border-color:var(--green); color:#fff; }
+  .opts button.on.fail{ border-color:var(--red); background:var(--red-l); color:var(--red); }
+  .opts button.on.fail .ico{ background:var(--red); border-color:var(--red); color:#fff; }
+  .item .desc{ margin-top:8px; display:none; }
+  .item .desc.show{ display:block; }
+  .item .desc textarea{ width:100%; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font-size:13px; min-height:56px; resize:none; background:#faffaf8; }
+  .item .desc textarea:focus{ outline:none; border-color:var(--orange); background:#fff; }
+
+  /* 照片 */
+  .photo-box{ padding:0 16px 14px; }
+  .photo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-top:9px; }
+  .photo-grid .ph{ position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; background:#f4f4f4; }
+  .photo-grid .ph img{ width:100%; height:100%; object-fit:cover; }
+  .photo-grid .ph .del{ position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.5); color:#fff; border:none; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .photo-add{ aspect-ratio:1; border:1.5px dashed #d0d0d0; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--t3); gap:4px; background:#fafafa; }
+  .photo-add .plus{ font-size:26px; line-height:1; }
+  .photo-add span{ font-size:11px; }
+  .photo-note{ font-size:12px; color:var(--t3); margin-top:8px; }
+
+  textarea.note{ width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; min-height:72px; resize:none; margin:8px 16px 14px; width:calc(100% - 32px); background:#fafafa; }
+  textarea.note:focus{ outline:none; border-color:var(--green); background:#fff; }
+
+  /* 底部提交 */
+  .foot{ position:fixed; bottom:0; left:0; right:0; background:rgba(255,255,255,.96); backdrop-filter:blur(8px); border-top:1px solid var(--line); padding:10px 14px calc(10px + env(safe-area-inset-bottom)); z-index:50; }
+  .foot .inner{ max-width:640px; margin:0 auto; display:flex; gap:10px; }
+  .foot button{ flex:1; padding:13px 0; border:none; border-radius:10px; font-size:16px; font-weight:600; }
+  .foot .btn-history{ background:#f4f4f4; color:var(--t2); flex:0 0 92px; }
+  .foot .btn-submit{ background:var(--green); color:#fff; }
+  .foot .btn-submit:active{ background:var(--green-d); }
+  .foot .btn-submit[disabled]{ background:#9ad8b6; }
+
+  /* 成功页 */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; display:none; align-items:center; justify-content:center; padding:24px; }
+  .overlay.show{ display:flex; }
+  .okbox{ background:#fff; border-radius:16px; padding:28px 24px 20px; max-width:340px; width:100%; text-align:center; }
+  .okbox .ck{ width:62px; height:62px; border-radius:50%; background:var(--green-l); margin:0 auto 14px; display:flex; align-items:center; justify-content:center; }
+  .okbox .ck svg{ width:32px; height:32px; }
+  .okbox h2{ font-size:19px; margin-bottom:6px; }
+  .okbox p{ font-size:13px; color:var(--t3); margin-bottom:18px; }
+  .okbox .sum{ background:#fafafa; border-radius:10px; padding:12px; text-align:left; font-size:13px; color:var(--t2); margin-bottom:18px; }
+  .okbox .sum div{ display:flex; justify-content:space-between; padding:3px 0; }
+  .okbox .sum b{ color:var(--t1); font-weight:500; }
+  .okbox .sum .fail-n{ color:var(--red); }
+  .okbox .ok-cloud{ text-align:center; padding:6px 0 0; font-size:13px; color:var(--t3); border-top:1px solid var(--line); margin-top:6px; }
+  .okbox .ok-cloud.ok{ color:var(--green); }
+  .okbox .ok-cloud span{ margin-right:2px; }
+  .okbox .actions{ display:flex; gap:10px; }
+  .okbox .actions button{ flex:1; padding:11px 0; border-radius:9px; font-size:15px; border:none; }
+  .okbox .btn-again{ background:#f4f4f4; color:var(--t2); }
+  .okbox .btn-done{ background:var(--green); color:#fff; }
+
+  /* 历史记录 */
+  .hist-overlay{ position:fixed; inset:0; background:var(--bg); z-index:90; display:none; flex-direction:column; }
+  .hist-overlay.show{ display:flex; }
+  .hist-head{ background:#fff; padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); display:flex; align-items:center; border-bottom:1px solid var(--line); }
+  .hist-head .back{ font-size:15px; color:var(--green); margin-right:6px; }
+  .hist-head h3{ font-size:17px; font-weight:600; }
+  .hist-list{ flex:1; overflow-y:auto; padding:12px 14px; -webkit-overflow-scrolling:touch; }
+  .hist-card{ background:#fff; border-radius:10px; padding:13px 14px; margin-bottom:10px; }
+  .hist-card .hc-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .hist-card .hc-area{ font-size:15px; font-weight:600; }
+  .hist-card .hc-time{ font-size:12px; color:var(--t3); }
+  .hist-card .hc-meta{ font-size:12px; color:var(--t2); display:flex; gap:14px; }
+  .hist-card .hc-meta .fail{ color:var(--red); }
+  .hist-card .hc-meta .pass{ color:var(--green-d); }
+  .hist-empty{ text-align:center; color:var(--t3); padding:60px 0; font-size:14px; }
+  .hist-clear{ text-align:center; padding:18px; color:var(--red); font-size:13px; }
+
+  .toast{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,.78); color:#fff; padding:11px 18px; border-radius:9px; font-size:14px; z-index:200; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show{ opacity:1; }
+
+  /* 二维码面板 */
+  .qr-panel{ position:fixed; inset:0; background:var(--bg); z-index:85; display:none; flex-direction:column; }
+  .qr-panel.show{ display:flex; }
+  .qr-panel .qr-head{ background:#fff; padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .qr-panel .qr-head h3{ font-size:17px; font-weight:600; }
+  .qr-panel .qr-head button{ background:none; border:none; font-size:15px; color:var(--green); }
+  .qr-panel .qr-body{ flex:1; overflow-y:auto; padding:12px 14px 20px; -webkit-overflow-scrolling:touch; }
+  .qr-panel .qr-body label{ display:block; font-size:13px; color:var(--t2); margin-bottom:5px; font-weight:500; }
+  .qr-panel .qr-body input[type=text],
+  .qr-panel .qr-body textarea{ width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:14px; font-family:inherit; background:#fafafa; margin-bottom:10px; }
+  .qr-panel .qr-body textarea{ min-height:90px; resize:vertical; }
+  .qr-panel .qr-body .hint{ font-size:12px; color:var(--t3); margin:-6px 0 12px; }
+  .qr-panel .qr-body .btn-row{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .qr-panel .qr-body .btn-row button{ padding:10px 14px; border:none; border-radius:8px; font-size:13px; font-weight:500; }
+  .qr-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .qr-card{ background:#fff; border-radius:10px; padding:12px; text-align:center; }
+  .qr-card img{ width:120px; height:120px; margin-bottom:8px; }
+  .qr-card .n{ font-size:14px; font-weight:600; margin-bottom:2px; }
+  .qr-card .u{ font-size:9px; color:#aaa; word-break:break-all; }
+  .qr-empty{ text-align:center; color:#aaa; padding:40px 0; font-size:13px; }
+
+  /* ===== 数据看板样式 ===== */
+  .db-overlay{ position:fixed; inset:0; background:var(--bg); z-index:90; display:none; flex-direction:column; }
+  .db-overlay.show{ display:flex; }
+  .db-head{ background:#fff; padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .db-head h3{ font-size:17px; font-weight:600; }
+  .db-head button{ background:none; border:none; font-size:15px; color:var(--green); }
+  .db-body{ flex:1; overflow-y:auto; padding:12px 14px 24px; -webkit-overflow-scrolling:touch; }
+
+  /* 摘要卡片 */
+  .db-cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+  .db-cards .c2{ grid-column:span 2; }
+  .dbc{ background:#fff; border-radius:10px; padding:14px; }
+  .dbc .dbc-v{ font-size:28px; font-weight:700; }
+  .dbc .dbc-l{ font-size:12px; color:var(--t3); margin-top:4px; }
+  .dbc.green .dbc-v{ color:var(--green-d); }
+  .dbc.red  .dbc-v{ color:var(--red); }
+  .dbc.orange .dbc-v{ color:var(--orange); }
+
+  /* 柱状图 */
+  .db-chart{ background:#fff; border-radius:10px; padding:14px; margin-bottom:14px; }
+  .db-chart .dbc-title{ font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .db-chart .dbc-title .dot{ width:4px; height:14px; background:var(--green); border-radius:2px; }
+  .bar-wrap{ display:flex; align-items:flex-end; gap:4px; height:140px; padding-top:8px; position:relative; }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; min-width:0; }
+  .bar-col .bar-val{ font-size:10px; color:var(--t2); margin-bottom:3px; font-weight:500; white-space:nowrap; }
+  .bar-col .bar-bar{ width:100%; max-width:32px; border-radius:4px 4px 0 0; transition:height .4s ease; min-height:3px; }
+  .bar-col .bar-bar.done{ background:var(--green); }
+  .bar-col .bar-bar.miss{ background:var(--line); }
+  .bar-col .bar-bar.has-fail{ background:var(--orange); }
+  .bar-col .bar-label{ font-size:9px; color:var(--t3); margin-top:5px; white-space:nowrap; transform:rotate(-30deg); transform-origin:top left; width:16px; overflow:hidden; text-overflow:ellipsis; }
+  .bar-legend{ display:flex; gap:16px; margin-top:8px; font-size:11px; color:var(--t3); }
+  .bar-legend span{ display:inline-flex; align-items:center; gap:4px; }
+  .bar-legend i{ display:inline-block; width:10px; height:10px; border-radius:2px; }
+  .bar-legend .ld{ background:var(--green); }
+  .bar-legend .lf{ background:var(--orange); }
+  .bar-legend .lm{ background:var(--line); }
+
+  /* 异常分布 */
+  .db-list{ background:#fff; border-radius:10px; padding:14px; margin-bottom:14px; }
+  .db-list .l-row{ display:flex; align-items:center; padding:7px 0; border-bottom:1px solid #f6f6f6; }
+  .db-list .l-row:last-child{ border-bottom:none; }
+  .db-list .l-name{ flex:1; font-size:13px; color:var(--t1); }
+  .db-list .l-count{ font-size:13px; font-weight:600; color:var(--red); margin-right:8px; min-width:28px; text-align:right; }
+  .db-list .l-bar-bg{ width:80px; height:6px; background:#f4f4f4; border-radius:3px; overflow:hidden; }
+  .db-list .l-bar-fill{ height:100%; background:var(--red); border-radius:3px; transition:width .4s; }
+  .db-no-data{ text-align:center; color:#ccc; padding:50px 0; font-size:15px; }
+  .db-no-data .big{ font-size:40px; margin-bottom:8px; }
+
+  /* 操作按钮 */
+  .db-actions{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .db-actions button{ padding:10px 15px; border:none; border-radius:8px; font-size:13px; font-weight:500; display:inline-flex; align-items:center; gap:4px; }
+  .db-actions .btn-report{ background:var(--green); color:#fff; }
+  .db-actions .btn-export{ background:#fff; color:var(--t2); border:1px solid var(--line); }
+  .db-actions .btn-import{ background:#f4f4f4; color:var(--t2); }
+  .db-actions .btn-sync{ background:#e8f4fd; color:#1a73e8; }
+
+  /* 日期筛选 */
+  .db-filter{ display:flex; gap:8px; align-items:center; margin-bottom:14px; font-size:12px; color:var(--t2); }
+  .db-filter select{ border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12px; background:#fff; }
+  .db-filter input[type=date]{ border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12px; }
+
+  @media print{
+    .db-head,.db-actions,.db-filter,.btn-history{ display:none !important; }
+    .db-body{ padding:0; overflow:visible; }
+    .db-overlay{ position:static; background:#fff; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div class="ttl">环境巡检 · 扫码填报</div>
+      <div class="area"><span id="areaName">未指定区域</span><span class="tag" id="areaTag">请扫码</span></div>
+    </div>
+    <button onclick="toggleQR()" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:14px;padding:5px 12px;font-size:12px;flex-shrink:0;margin-top:2px">生成二维码</button>
+  </div>
+</div>
+
+<div class="prog">
+  <div class="bar"><i id="progBar"></i></div>
+  <div class="txt"><span>检查进度</span><span id="progTxt">0 / 0</span></div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <div class="h"><span class="dot"></span>巡检信息<span class="sub">免登录 · 提交即记录</span></div>
+    <div class="row">
+      <label>巡检人</label>
+      <input type="text" id="inspector" placeholder="填写你的姓名" maxlength="20">
+    </div>
+    <div class="row">
+      <label>巡检时间</label>
+      <span class="val" id="timeNow">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="h"><span class="dot"></span>卫生检查项<span class="sub">逐项判定</span></div>
+    <div id="itemList"></div>
+  </div>
+
+  <div class="card">
+    <div class="h"><span class="dot"></span>现场照片<span class="sub">最多3张 · 可选</span></div>
+    <div class="photo-box">
+      <div class="photo-grid" id="photoGrid">
+        <label class="photo-add" id="photoAdd">
+          <span class="plus">+</span><span>拍照/相册</span>
+          <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none">
+        </label>
+      </div>
+      <div class="photo-note">有问题的点位建议拍照留证，提交后便于跟进整改。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="h"><span class="dot"></span>整体备注<span class="sub">可选</span></div>
+    <textarea class="note" id="remark" placeholder="补充说明：如需报修、整体评价等"></textarea>
+  </div>
+
+</div>
+
+<div class="foot">
+  <div class="inner">
+    <button class="btn-history" onclick="openHistory()">巡检记录</button>
+    <button class="btn-history" onclick="openDashboard()">数据看板</button>
+    <button class="btn-submit" id="submitBtn" onclick="submit()">提交巡检</button>
+  </div>
+</div>
+
+<!-- 成功弹层 -->
+<div class="overlay" id="okOverlay">
+  <div class="okbox">
+    <div class="ck"><svg viewBox="0 0 48 48" fill="none"><path d="M14 25l7 7 13-14" stroke="#07c160" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h2>提交成功</h2>
+    <p id="okTip">本次巡检已记录</p>
+    <div class="sum" id="okSum"></div>
+    <div class="actions">
+      <button class="btn-again" onclick="closeOk()">继续巡检</button>
+      <button class="btn-done" onclick="openHistory()">查看记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- 历史记录 -->
+<div class="hist-overlay" id="histOverlay">
+  <div class="hist-head">
+    <span class="back" onclick="closeHistory()">‹ 返回</span>
+    <h3>巡检记录</h3>
+  </div>
+  <div class="hist-list" id="histList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 数据看板 -->
+<div class="db-overlay" id="dbOverlay">
+  <div class="db-head">
+    <span onclick="closeDashboard()" style="color:var(--green);font-size:15px;">‹ 返回</span>
+    <h3>巡检数据看板</h3>
+    <span onclick="generateReport()" style="color:var(--green);font-size:13px;">生成报告</span>
+  </div>
+  <div class="db-body" id="dbBody">
+    <div class="db-no-data"><div class="big">📊</div>暂无巡检数据<br>提交几次巡检后这里会有分析图表</div>
+  </div>
+</div>
+
+<!-- 隐藏的文件导入input -->
+<input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
+
+<!-- 二维码生成面板 -->
+<div class="qr-panel" id="qrPanel">
+  <div class="qr-head">
+    <h3>批量生成巡检二维码</h3>
+    <button onclick="toggleQR()">关闭</button>
+  </div>
+  <div class="qr-body">
+    <label>第 1 步：填写当前页面地址</label>
+    <input type="text" id="qrBaseUrl" placeholder="如 https://域名/index.html">
+    <div class="hint">就是 index.html 部署后的网址，去掉 ?area= 及之后部分。如果不知道，复制浏览器地址栏里 index.html 前面的部分即可。</div>
+    <label>第 2 步：输入区域名称（每行一个）</label>
+    <textarea id="qrAreas" placeholder="一楼大厅&#10;二楼会议室A&#10;二楼茶水间&#10;三楼男卫生间">一楼大厅
+二楼会议室A
+二楼茶水间
+三楼男卫生间
+一楼消防通道</textarea>
+    <div class="hint">每个区域占一行。名称里不要有 ? & # 等特殊符号。</div>
+    <div class="btn-row">
+      <button onclick="genQRCodes()" style="background:var(--green);color:#fff;">生成二维码</button>
+      <button onclick="clearQRCodes()" style="background:#f4f4f4;color:var(--t2)">清空</button>
+      <button onclick="window.print()" style="background:#fff;color:var(--green);border:1px solid var(--green);">打印</button>
+    </div>
+    <div class="qr-grid" id="qrGrid"><div class="qr-empty">填好地址和区域名，点生成</div></div>
+  </div>
+</div>
+
+<script>
+/* ========= 配置区（按需修改） ========= */
+const CONFIG = {
+  // 生产模式：填入后端接口地址（如 https://你的域名/api/inspect），留空则用本地存储演示
+  API_ENDPOINT: "",
+  // 检查项，可增删改
+  ITEMS: [
+    "地面清洁无杂物",
+    "桌面台面整洁",
+    "垃圾桶已清理/分类",
+    "门窗玻璃干净",
+    "物品摆放有序",
+    "通风良好无异味",
+    "消防通道畅通",
+    "应急设备完好"
+  ],
+  // 企业微信群机器人 webhook（可选，留空不推送）。填了会在提交时通知群里
+  WECOM_WEBHOOK: "",
+  // 共享云存储地址（可选，留空用本地存储）。填了后所有扫码人数据自动汇总到一个看板。
+  // 获取方式：打开 jsonblob.com → 在框里输入 [] → 点 Create → 复制拿到的网址填在这里
+  SHARED_STORAGE_URL: "",
+  // 数据保留天数（超过此天数的记录自动清理，0=不清理）
+  RETENTION_DAYS: 30,
+  // 是否同步照片到图床（sm.ms，免费无需注册，国内可访问）。设为 false 则照片仅存本机
+  PHOTO_SYNC: true
+};
+// 自动从 localStorage 加载云存储地址（通过看板设置向导保存的）
+(function(){
+  const saved = localStorage.getItem("env_cloud_url");
+  if(saved){
+    // 自动修正：旧版本可能存了查看页网址，转成 API 格式
+    let url = saved;
+    if(url.includes("jsonblob.com") && !url.includes("/api/")){
+      const id = url.replace(/^https?:\/\/jsonblob\.com\//, "").replace(/\/.*$/,"").replace(/[?#].*$/,"");
+      url = "https://jsonblob.com/api/jsonBlob/" + id;
+      localStorage.setItem("env_cloud_url", url); // 修正后存回去
+    }
+    CONFIG.SHARED_STORAGE_URL = url;
+  }
+})();
+/* ==================================== */
+
+/* ========= 云存储 ========= */
+let _cloudCache = null; // 缓存云端数据，避免看板反复请求
+let _lastSyncError = "";
+
+async function cloudGet(){
+  if(!CONFIG.SHARED_STORAGE_URL) return [];
+  try{
+    const r = await fetch(CONFIG.SHARED_STORAGE_URL, {
+      headers: {"Accept":"application/json"},
+      cache:"no-store"
+    });
+    if(!r.ok) return [];
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  }catch(e){ _lastSyncError = e.message; return []; }
+}
+
+async function cloudPush(records){
+  if(!CONFIG.SHARED_STORAGE_URL) return { ok:false, error:"未配置云存储地址" };
+  // 发送数据：去掉大体积原始照片，保留压缩缩略图
+  const compact = records.map(r=>{
+    const {photos, ...rest} = r;
+    return rest;
+  });
+  // 检查 payload 大小，jsonblob 限制约 1MB，超过则逐条去掉缩略图
+  let payload = JSON.stringify(compact);
+  if(payload.length > 800000){  // 800KB 安全阈值
+    console.warn("云端数据过大("+(payload.length/1024).toFixed(1)+"KB)，自动精简...");
+    const light = records.map(r=>{
+      const {photos, thumbs, ...rest} = r;
+      return rest;  // 连缩略图也去掉，仅保留纯文本数据
+    });
+    payload = JSON.stringify(light);
+    try{
+      const r = await fetch(CONFIG.SHARED_STORAGE_URL, {
+        method:"PUT",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body: payload
+      });
+      if(r.ok) return { ok:true, trimmed:true };
+    }catch(e){}
+  }
+  // 方案 1：PUT 原地更新（多设备共享同一个 URL）
+  try{
+    const r = await fetch(CONFIG.SHARED_STORAGE_URL, {
+      method:"PUT",
+      headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body: JSON.stringify(compact)
+    });
+    if(r.ok) return { ok:true };
+    _lastSyncError = "HTTP "+r.status;
+  }catch(e){
+    _lastSyncError = e.message;
+  }
+  // 方案 2（降级）：POST 创建新 blob —— 注意：不同手机 URL 会分叉，仅本机可用
+  try{
+    const r2 = await fetch("https://jsonblob.com/api/jsonBlob", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body: JSON.stringify(compact)
+    });
+    if(r2.ok){
+      const loc = r2.headers.get("Location");
+      if(loc){
+        const newUrl = loc.startsWith("http") ? loc : "https://jsonblob.com" + loc;
+        localStorage.setItem("env_cloud_url", newUrl);
+        CONFIG.SHARED_STORAGE_URL = newUrl;
+      }
+      _lastSyncError = "已降级为单机模式（PUT被拦截，改用POST）";
+      return { ok:true };
+    }
+  }catch(e2){ _lastSyncError = e2.message; }
+  return { ok:false, error:_lastSyncError };
+}
+
+async function cloudSync(newRecord){
+  if(!CONFIG.SHARED_STORAGE_URL) return { ok:true, cloudCount:0 };
+  // 读云端 → 合并本地 → 去重写入
+  const cloud = await cloudGet();
+  const ids = new Set(cloud.map(r=>r.id||r.submitAt));
+  let added = 0;
+  // 把本地所有记录合并到云端
+  const local = JSON.parse(localStorage.getItem("env_records")||"[]");
+  local.forEach(r=>{
+    const rid = r.id||r.submitAt;
+    if(!ids.has(rid)){ cloud.unshift(r); ids.add(rid); added++; }
+  });
+  // 按时间倒序
+  cloud.sort((a,b)=>new Date(b.submitAt||b.time)-new Date(a.submitAt||a.time));
+  // 自动清理超过保留期的记录
+  const filtered = filterByRetention(cloud);
+  if(filtered.length < cloud.length){
+    console.log("自动清理了 "+(cloud.length-filtered.length)+" 条过期记录");
+  }
+  // 同时清理本机 localStorage 中的过期数据
+  const localFiltered = filterByRetention(local);
+  if(localFiltered.length < local.length){
+    localStorage.setItem("env_records", JSON.stringify(localFiltered));
+  }
+  const result = await cloudPush(filtered);
+  if(result.ok){
+    _cloudCache = filtered;
+    // 检查是否降级（POST 替代了 PUT）：降级说明多设备同步不可用
+    if(_lastSyncError && _lastSyncError.includes("降级")) result.fallback = true;
+  }
+  return { ok:result.ok, cloudCount: filtered.length, added, error: result.error, fallback: result.fallback };
+}
+
+/* ==================================== */
+
+/* ========= 照片压缩（缩略图方案，直接存入云端，不依赖外部图床） ========= */
+function compressPhoto(base64, maxSize=300){
+  return new Promise((resolve)=>{
+    try{
+      const img = new Image();
+      img.onload = ()=>{
+        const canvas = document.createElement('canvas');
+        let w=img.width, h=img.height;
+        const scale = Math.min(maxSize/w, maxSize/h, 1);
+        w = Math.round(w*scale); h = Math.round(h*scale);
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', 0.55));  // JPEG 55%质量，约 8-20KB
+      };
+      img.onerror=()=>resolve(null);
+      img.src=base64;
+    }catch(e){ resolve(null); }
+  });
+}
+
+async function compressAllPhotos(photos){
+  if(!photos.length) return [];
+  const results=[];
+  for(let i=0; i<photos.length; i++){
+    const thumb = await compressPhoto(photos[i]);
+    results.push(thumb);
+  }
+  return results;
+}
+
+/* ========= 数据保留过滤 ========= */
+function getRetentionDate(){
+  if(!CONFIG.RETENTION_DAYS || CONFIG.RETENTION_DAYS <= 0) return null;
+  const d = new Date(); d.setDate(d.getDate() - CONFIG.RETENTION_DAYS); d.setHours(0,0,0,0);
+  return d;
+}
+
+function filterByRetention(records){
+  const cutoff = getRetentionDate();
+  if(!cutoff) return records;
+  return records.filter(r=>{
+    const t = new Date(r.submitAt||r.time);
+    return t >= cutoff;
+  });
+}
+
+/* ========= 整改状态 ========= */
+function getRectifyMap(){
+  try{ return JSON.parse(localStorage.getItem("env_rectify")||"{}"); }catch(e){ return {}; }
+}
+function setRectify(recordId, status){
+  const map = getRectifyMap();
+  map[recordId] = { status, time: new Date().toISOString() };
+  localStorage.setItem("env_rectify", JSON.stringify(map));
+  if(CONFIG.SHARED_STORAGE_URL){
+    localStorage.setItem("env_rectify_pending_sync", "1");
+  }
+}
+function getRectify(recordId){
+  const map = getRectifyMap();
+  return map[recordId] || null;
+}
+
+/* ========= QR 库动态加载 ========= */
+let _qrLoaded = false, _qrLoading = null;
+function loadQRLib(){
+  if(_qrLoaded) return Promise.resolve();
+  if(_qrLoading) return _qrLoading;
+  _qrLoading = new Promise((resolve,reject)=>{
+    if(window.QRCode){ _qrLoaded=true; _qrLoading=null; resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js";
+    s.onload = ()=>{ _qrLoaded=true; _qrLoading=null; resolve(); };
+    s.onerror = ()=>{
+      _qrLoading=null;
+      const s2 = document.createElement("script");
+      s2.src = "https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js";
+      s2.onload = ()=>{ _qrLoaded=true; resolve(); };
+      s2.onerror = ()=>{ reject(new Error("QR库加载失败")); };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s);
+  });
+  return _qrLoading;
+}
+
+/* ==================================== */
+
+const params = new URLSearchParams(location.search);
+let area = (params.get("area") || "").trim();
+// 兼容中文字符未编码的情况
+if(!area){ const m = location.href.match(/[?&]area=([^&]+)/); if(m) area = decodeURIComponent(m[1]).trim(); }
+area = area || "";
+
+const $ = id => document.getElementById(id);
+let photos = [];        // base64 数组
+let itemState = {};     // {idx:{status,desc}}
+
+function fmtTime(d){
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function init(){
+  // 区域
+  if(area){
+    $("areaName").textContent = area;
+    $("areaTag").textContent = "扫码进入";
+    $("areaTag").style.display = "inline-block";
+  }else{
+    $("areaName").textContent = "未指定区域";
+    $("areaTag").textContent = "请从区域二维码扫码进入";
+  }
+  // 时间
+  $("timeNow").textContent = fmtTime(new Date());
+  setInterval(()=>{ $("timeNow").textContent = fmtTime(new Date()); }, 30000);
+  // 巡检人记忆
+  const last = localStorage.getItem("env_inspector");
+  if(last) $("inspector").value = last;
+  // 检查项
+  renderItems();
+  updateProgress();
+}
+
+function renderItems(){
+  const list = $("itemList");
+  list.innerHTML = "";
+  CONFIG.ITEMS.forEach((name,i)=>{
+    itemState[i] = {status:"", desc:""};
+    const el = document.createElement("div");
+    el.className = "item";
+    el.innerHTML = `
+      <div class="name"><span class="idx">${i+1}</span>${name}</div>
+      <div class="opts">
+        <button data-i="${i}" data-v="pass"><span class="ico">✓</span>合格</button>
+        <button data-i="${i}" data-v="fail"><span class="ico">✕</span>不合格</button>
+      </div>
+      <div class="desc" id="desc-${i}"><textarea placeholder="说明该处问题（便于整改）" maxlength="200"></textarea></div>
+    `;
+    list.appendChild(el);
+  });
+  list.querySelectorAll(".opts button").forEach(btn=>{
+    btn.addEventListener("click", e=>{
+      const i = +btn.dataset.i, v = btn.dataset.v;
+      itemState[i].status = v;
+      btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on","pass","fail"));
+      btn.classList.add("on", v);
+      $("desc-"+i).classList.toggle("show", v==="fail");
+      updateProgress();
+    });
+  });
+  list.querySelectorAll(".desc textarea").forEach((ta,i)=>{
+    ta.addEventListener("input", e=>{ itemState[i].desc = e.target.value; });
+  });
+}
+
+function updateProgress(){
+  const total = CONFIG.ITEMS.length;
+  const done = Object.values(itemState).filter(s=>s.status).length;
+  $("progBar").style.width = (done/total*100)+"%";
+  $("progTxt").textContent = `${done} / ${total}`;
+  $("submitBtn").disabled = done < total;
+}
+
+/* 照片 */
+$("photoInput").addEventListener("change", async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(photos.length >= 3){ toast("最多3张照片"); return; }
+  const b64 = await resizeImage(file, 1024, 0.72);
+  photos.push(b64);
+  e.target.value = "";
+  renderPhotos();
+});
+function resizeImage(file, max, q){
+  return new Promise(res=>{
+    const r = new FileReader();
+    r.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width:w, height:h} = img;
+        if(w > h && w > max){ h = h*max/w; w = max; }
+        else if(h > max){ w = w*max/h; h = max; }
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        res(c.toDataURL("image/jpeg", q));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+function renderPhotos(){
+  const grid = $("photoGrid");
+  grid.querySelectorAll(".ph").forEach(n=>n.remove());
+  photos.forEach((src,i)=>{
+    const d = document.createElement("div");
+    d.className = "ph";
+    d.innerHTML = `<img src="${src}"><button class="del" onclick="delPhoto(${i})">×</button>`;
+    grid.insertBefore(d, $("photoAdd"));
+  });
+  $("photoAdd").style.display = photos.length >= 3 ? "none" : "flex";
+}
+function delPhoto(i){ photos.splice(i,1); renderPhotos(); }
+
+/* 提交 */
+async function submit(){
+  if(!area){ toast("未识别到区域，请扫码进入"); return; }
+  const inspector = $("inspector").value.trim();
+  if(!inspector){ toast("请填写巡检人姓名"); $("inspector").focus(); return; }
+  const done = Object.values(itemState).filter(s=>s.status).length;
+  if(done < CONFIG.ITEMS.length){ toast("请完成全部检查项"); return; }
+
+  const btn = $("submitBtn");
+  btn.disabled = true; btn.textContent = "提交中…";
+
+  const items = CONFIG.ITEMS.map((name,i)=>({ name, status: itemState[i].status, desc: itemState[i].desc }));
+  const failCount = items.filter(x=>x.status==="fail").length;
+  const payload = {
+    area, inspector,
+    time: $("timeNow").textContent,
+    items, remark: $("remark").value.trim(),
+    photos: photos.slice(),
+    failCount, submitAt: new Date().toISOString()
+  };
+
+  localStorage.setItem("env_inspector", inspector);
+  let ok = false, msg = "", cloudOk = true, cloudFallback = false;
+  try{
+    if(CONFIG.API_ENDPOINT){
+      const r = await fetch(CONFIG.API_ENDPOINT, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+      ok = r.ok; msg = ok ? "" : ("服务器返回 "+r.status);
+    }else{
+      // 压缩照片为缩略图存入云端（不依赖外部图床，跨设备可用）
+      const thumbs = await compressAllPhotos(photos);
+      // 本机存储（含原始 base64 照片 + 缩略图）
+      const list = JSON.parse(localStorage.getItem("env_records")||"[]");
+      list.unshift({ id: Date.now(), ...payload, photos: photos.slice(), thumbs });
+      localStorage.setItem("env_records", JSON.stringify(list));
+      // 推送到云存储（含缩略图）
+      const cloudResult = await cloudSync({ id: Date.now(), ...payload, photos: photos.slice(), thumbs });
+      ok = true;
+      cloudOk = cloudResult.ok;
+      cloudFallback = cloudResult.fallback;
+      cloudOk = cloudResult.ok;
+      cloudFallback = cloudResult.fallback;
+      if(cloudResult.error){
+        console.warn("云同步失败:", cloudResult.error);
+      }
+    }
+    // 可选：推送到企业微信群机器人
+    if(CONFIG.WECOM_WEBHOOK){
+      pushWeCom(payload).catch(()=>{});
+    }
+  }catch(err){ ok = false; msg = err.message || "网络异常"; }
+
+  btn.disabled = false; btn.textContent = "提交巡检";
+
+  if(ok){
+    showOk(payload, failCount, cloudOk, cloudFallback, _lastSyncError);
+    resetForm();
+  }else{
+    toast("提交失败：" + (msg || "请检查网络"));
+  }
+}
+
+async function pushWeCom(p){
+  const text = `【环境巡检】\n区域：${p.area}\n巡检人：${p.inspector}\n时间：${p.time}\n不合格项：${p.failCount} 个\n备注：${p.remark || "无"}`;
+  const content = { msgtype:"text", text:{ content } };
+  // 带图用 image 类型（需先上传素材，此处简化为文字通知）
+  await fetch(CONFIG.WECOM_WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(content) });
+}
+
+function resetForm(){
+  renderItems();
+  photos = []; renderPhotos();
+  $("remark").value = "";
+  updateProgress();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function showOk(p, fail, cloudOk, cloudFallback, cloudError){
+  $("okTip").textContent = fail===0 ? "全部合格，感谢巡检" : `发现 ${fail} 处不合格，已记录待整改`;
+  let cloudStatus = '';
+  if(CONFIG.SHARED_STORAGE_URL){
+    if(cloudOk && cloudFallback){
+      cloudStatus = '<div class="ok-cloud"><span>⚠️</span> 已保存（降级为单机模式，多设备同步暂不可用）</div>';
+    }else if(cloudOk){
+      cloudStatus = '<div class="ok-cloud ok"><span>☁️</span> 已同步到云端</div>';
+    }else{
+      cloudStatus = '<div class="ok-cloud"><span>⚠️</span> 云端同步失败'+(cloudError?('：'+cloudError):'，仅保存在本机')+'</div>';
+    }
+  }
+  $("okSum").innerHTML = `
+    <div><span>区域</span><b>${p.area}</b></div>
+    <div><span>巡检人</span><b>${p.inspector}</b></div>
+    <div><span>时间</span><b>${p.time}</b></div>
+    <div><span>合格</span><b class="pass">${p.items.length-fail} 项</b></div>
+    <div><span>不合格</span><b class="fail-n">${fail} 项</b></div>
+    <div><span>照片</span><b>${p.photos.length} 张</b></div>
+    ${cloudStatus}
+  `;
+  $("okOverlay").classList.add("show");
+}
+function closeOk(){ $("okOverlay").classList.remove("show"); }
+
+/* 历史 */
+function openHistory(){
+  $("okOverlay").classList.remove("show");  // 先关闭成功弹层
+  const list = JSON.parse(localStorage.getItem("env_records")||"[]");
+  const box = $("histList");
+  if(list.length===0){
+    box.innerHTML = `<div class="hist-empty">还没有巡检记录<br>提交一次就会出现在这里</div>`;
+  }else{
+    box.innerHTML = list.map(r=>{
+      const rid = r.id||r.submitAt;
+      const rect = getRectify(rid);
+      const rectBadge = (r.failCount||0)>0
+        ? (rect && rect.status==="done"
+            ? '<span style="display:inline-block;background:#e8f8ef;color:#07c160;font-size:11px;padding:2px 7px;border-radius:10px;margin-left:6px">已整改</span>'
+            : '<span onclick="event.stopPropagation();markRectified('+rid+',this)" style="display:inline-block;background:#fdecec;color:#fa5151;font-size:11px;padding:2px 7px;border-radius:10px;margin-left:6px;cursor:pointer">待整改</span>')
+        : '';
+      // 照片显示：优先用缩略图（跨设备），降级用本地原始照片
+      const photoHtml = (r.thumbs && r.thumbs.filter(l=>l).length)
+        ? r.thumbs.filter(l=>l).slice(0,3).map(url=>`<img src="${url}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin:3px">`).join("")
+        : (r.photos && r.photos.filter(l=>l).length)
+          ? r.photos.filter(l=>l).slice(0,3).map(src=>`<img src="${src}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin:3px">`).join("")
+          : '';
+      return `
+      <div class="hist-card" id="rec-${rid}">
+        <div class="hc-top">
+          <span class="hc-area">${r.area}${rectBadge}</span>
+          <span class="hc-time">${r.time}</span>
+        </div>
+        <div class="hc-meta">
+          <span>${r.inspector}</span>
+          <span class="pass">合格 ${(r.items?r.items.length:0) - (r.failCount||0)}</span>
+          ${r.failCount? `<span class="fail">不合格 ${r.failCount}</span>`:""}
+        </div>
+        ${r.remark? `<div style="margin-top:7px;font-size:12px;color:#888">备注：${r.remark}</div>`:""}
+        ${r.failCount? `<div style="margin-top:7px;font-size:12px;color:#c00">${(r.items||[]).filter(x=>x.status==='fail').map(x=>'· '+x.name+(x.desc?('：'+x.desc):'')).join('<br>')}</div>`:""}
+        ${photoHtml? `<div style="margin-top:7px;display:flex;flex-wrap:wrap;gap:3px">${photoHtml}</div>`:""}
+      </div>
+    `}).join("") + `<div class="hist-clear" onclick="clearHistory()">清空本地记录</div>`;
+  }
+  $("histOverlay").classList.add("show");
+}
+function closeHistory(){ $("histOverlay").classList.remove("show"); }
+function clearHistory(){
+  if(confirm("确定清空本机所有巡检记录？此操作不可恢复。")){
+    localStorage.removeItem("env_records");
+    localStorage.removeItem("env_rectify");
+    openHistory();
+  }
+}
+
+function markRectified(id, el){
+  if(confirm("确认该巡检记录的所有不合格项已整改完成？")){
+    setRectify(id, "done");
+    el.textContent = "已整改";
+    el.style.background = "#e8f8ef";
+    el.style.color = "#07c160";
+    toast("已标记为整改完成");
+  }
+}
+
+let toastTimer;
+function toast(t){
+  const el = $("toast");
+  el.textContent = t; el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove("show"), 1800);
+}
+
+init();
+
+/* 二维码生成 */
+function toggleQR(){
+  const p = $("qrPanel");
+  p.classList.toggle("show");
+  // 自动填当前地址
+  if(p.classList.contains("show") && !$("qrBaseUrl").value){
+    const u = location.href.replace(/[?&]area=[^&]*/,"").replace(/\?$/,"");
+    $("qrBaseUrl").value = u;
+  }
+}
+async function genQRCodes(){
+  let base = $("qrBaseUrl").value.trim();
+  const names = $("qrAreas").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(!base){ alert("请先填写页面地址"); return; }
+  if(!names.length){ alert("请输入至少一个区域名称"); return; }
+  if(base.indexOf("?")>0) base = base.slice(0, base.indexOf("?"));
+  // 动态加载 QR 库
+  try{
+    await loadQRLib();
+  }catch(e){
+    alert("二维码库加载失败，请检查网络后刷新重试"); return;
+  }
+  const g = $("qrGrid"); g.innerHTML = "";
+  names.forEach(name=>{
+    const url = base + "?area=" + encodeURIComponent(name);
+    const card = document.createElement("div");
+    card.className = "qr-card";
+    const qid = "qr-"+Math.random().toString(36).slice(2);
+    card.innerHTML = `<div id="${qid}"></div><div class="n">${name}</div><div class="u">${url}</div>`;
+    g.appendChild(card);
+    new QRCode(document.getElementById(qid), { text:url, width:120, height:120, correctLevel:QRCode.CorrectLevel.M });
+  });
+}
+function clearQRCodes(){ $("qrGrid").innerHTML = '<div class="qr-empty">填好地址和区域名，点生成</div>'; }
+
+/* ========= 数据看板 ========= */
+function getRecords(){
+  try{ return JSON.parse(localStorage.getItem("env_records")||"[]"); }catch(e){ return []; }
+}
+
+async function getMergedRecords(){
+  // 返回合并后的所有记录（本地+云端），并过滤过期数据
+  if(!CONFIG.SHARED_STORAGE_URL) return filterByRetention(getRecords());
+  // 先从云端拉最新数据
+  const cloud = await cloudGet();
+  const local = getRecords();
+  if(cloud.length > 0){
+    // 用本地照片的 base64 补充云端缺失的照片（本机拍的本地有，跨设备看不了但本机可看）
+    const localMap = {};
+    local.forEach(r => { localMap[r.id || r.submitAt] = r; });
+    const merged = cloud.map(r => {
+      const key = r.id || r.submitAt;
+      const localR = localMap[key];
+      // 如果云端没有缩略图但本地有，合并过来
+      if(localR){
+        if(!r.thumbs || r.thumbs.filter(Boolean).length === 0){
+          if(localR.thumbs && localR.thumbs.filter(Boolean).length > 0){
+            r = { ...r, thumbs: localR.thumbs };
+          }
+        }
+        // 如果云端没有原始照片但本地有（本机查看），合并过来
+        if(!r.photos || r.photos.filter(Boolean).length === 0){
+          if(localR.photos && localR.photos.filter(Boolean).length > 0){
+            r = { ...r, photos: localR.photos };
+          }
+        }
+      }
+      return r;
+    });
+    const filtered = filterByRetention(merged);
+    localStorage.setItem("env_records", JSON.stringify(filtered));
+    _cloudCache = filtered;
+    return filtered;
+  }
+  // 云端为空时用本地
+  return filterByRetention(getRecords());
+}
+
+async function openDashboard(){
+  const db = $("dbBody");
+  db.innerHTML = '<div class="db-no-data"><div class="big">⏳</div>加载数据中…</div>';
+  $("dbOverlay").classList.add("show");
+
+  const records = CONFIG.SHARED_STORAGE_URL ? await getMergedRecords() : getRecords();
+  if(records.length === 0){
+    db.innerHTML = '<div class="db-no-data"><div class="big">📊</div>暂无巡检数据<br>提交几次巡检后这里会有分析图表</div>';
+    $("dbOverlay").classList.add("show");
+    return;
+  }
+
+  // 近15天数据
+  const today = new Date(); today.setHours(23,59,59,999);
+  const days = [];
+  for(let i=14;i>=0;i--){
+    const d = new Date(today); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    const d2 = new Date(d); d2.setDate(d2.getDate()+1);
+    const label = (d.getMonth()+1)+"/"+d.getDate();
+    const dayRecs = records.filter(r=>{
+      const rt = new Date(r.submitAt||r.time);
+      return rt >= d && rt < d2;
+    });
+    days.push({ label, date:d, count:dayRecs.length, recruits:dayRecs,
+      failTotal: dayRecs.reduce((s,r)=>s+(r.failCount||0),0),
+      hasInspection: dayRecs.length > 0,
+      hasFail: dayRecs.some(r=>(r.failCount||0)>0),
+      // 按区域去重（同一天同区域可能巡检多次，取最后一次）
+      areas: [...new Set(dayRecs.map(r=>r.area))]
+    });
+    d2.setDate(d2.getDate()-1);
+  }
+
+  // 汇总统计
+  const totalInspections = records.length;
+  const totalFails = records.reduce((s,r)=>s+(r.failCount||0),0);
+  const totalItems = records.reduce((s,r)=>s+(r.items?r.items.length:0),0);
+  const passRate = totalItems > 0 ? Math.round((totalItems-totalFails)/totalItems*100) : 100;
+  const inspectedDays = days.filter(d=>d.hasInspection).length;
+  const anomalyDays = days.filter(d=>d.hasFail).length;
+
+  // 异常项分布
+  const failMap = {};
+  records.forEach(r=>{
+    if(r.items) r.items.forEach(it=>{
+      if(it.status==="fail"){
+        const n = it.name;
+        failMap[n] = (failMap[n]||0)+1;
+      }
+    });
+  });
+  const failList = Object.entries(failMap).sort((a,b)=>b[1]-a[1]);
+
+  // 整改统计
+  const rectifyMap = getRectifyMap();
+  let rectifyTotal = 0, rectifyDone = 0;
+  records.forEach(r=>{
+    if((r.failCount||0) > 0){
+      rectifyTotal++;
+      const rid = r.id||r.submitAt;
+      if(rectifyMap[rid] && rectifyMap[rid].status === "done") rectifyDone++;
+    }
+  });
+  const rectifyPending = rectifyTotal - rectifyDone;
+
+  // 最大日记录数用于柱状图高度
+  const maxDayCount = Math.max(1, ...days.map(d=>d.count));
+
+  // 渲染
+  db.innerHTML = `
+    <!-- 云同步状态 -->
+    ${CONFIG.SHARED_STORAGE_URL ? `
+    <div style="background:#e8f8ef;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#07c160;display:flex;align-items:center;justify-content:space-between">
+      <span>☁️ 云端数据 · ${records.length} 条记录（来自所有巡检人）</span>
+      <span onclick="openDashboard()" style="color:#07c160;font-weight:500;cursor:pointer">🔄 刷新</span>
+    </div>
+    ` : `
+    <div style="background:#fff8e5;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#b8860b;display:flex;align-items:center;justify-content:space-between">
+      <span>📱 本机数据 · 仅显示此设备记录</span>
+      <span onclick="showCloudSetup()" style="color:#b8860b;font-weight:500;cursor:pointer">☁️ 开启云汇总</span>
+    </div>
+    `}
+    <!-- 操作按钮 -->
+    <div class="db-actions">
+      <button class="btn-sync" onclick="syncNow()">🔄 同步云端</button>
+      <button class="btn-report" onclick="generateReport()">📋 生成分析报告</button>
+      <button class="btn-export" onclick="exportData()">📥 导出数据</button>
+      <button class="btn-import" onclick="$('importFileInput').click()">📤 导入合并</button>
+    </div>
+
+    <!-- 摘要卡片 -->
+    <div class="db-cards">
+      <div class="dbc green">
+        <div class="dbc-v">${totalInspections}</div>
+        <div class="dbc-l">累计巡检次数</div>
+      </div>
+      <div class="dbc ${totalFails>0?'red':'green'}">
+        <div class="dbc-v">${totalFails}</div>
+        <div class="dbc-l">累计不合格项</div>
+      </div>
+      <div class="dbc ${passRate>=90?'green':'orange'}">
+        <div class="dbc-v">${passRate}%</div>
+        <div class="dbc-l">整体合格率</div>
+      </div>
+      <div class="dbc ${anomalyDays>0?'orange':'green'}">
+        <div class="dbc-v">${anomalyDays}</div>
+        <div class="dbc-l">异常天数</div>
+      </div>
+      ${rectifyTotal>0 ? `
+      <div class="dbc ${rectifyPending>0?'orange':'green'}">
+        <div class="dbc-v">${rectifyDone}/${rectifyTotal}</div>
+        <div class="dbc-l">已整改</div>
+      </div>
+      <div class="dbc ${rectifyPending>0?'red':'green'}">
+        <div class="dbc-v">${rectifyPending}</div>
+        <div class="dbc-l">待整改</div>
+      </div>
+      `:''}
+    </div>
+
+    <!-- 巡检照片墙（最近照片，滚动查看） -->
+    ${(()=>{
+      const allPhotos = [];
+      records.forEach(r=>{
+        // 优先用缩略图（跨设备），其次用原始照片（本机）
+        const thumbs = (r.thumbs || []).filter(Boolean);
+        const local = (r.photos || []).filter(Boolean);
+        if(thumbs.length > 0){
+          thumbs.forEach(url=>allPhotos.push({url, record:r}));
+        }else if(local.length > 0){
+          local.forEach(src=>allPhotos.push({url:src, record:r}));
+        }
+      });
+      if(allPhotos.length===0) return `
+      <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="font-size:14px;font-weight:500;margin-bottom:6px;color:var(--t1)">📷 巡检照片</div>
+        <div style="font-size:12px;color:var(--t3);padding:8px 0">暂无照片记录。提交巡检时拍照，照片将显示在这里。</div>
+      </div>`;
+      return `
+      <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="font-size:14px;font-weight:500;margin-bottom:10px;color:var(--t1)">📷 巡检照片（${allPhotos.length} 张）</div>
+        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch">
+          ${allPhotos.slice(0,30).map((p,i)=>`
+            <div style="flex-shrink:0;position:relative">
+              <img src="${p.url}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #e0e0e0"
+                onclick="showPhotoFull('${p.url.replace(/'/g,"\\'")}')" onerror="this.parentElement.style.display='none'">
+              <div style="font-size:10px;color:var(--t2);text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px">
+                ${p.record.area||''} · ${(p.record.time||'').slice(5,16)}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>`;
+    })()}
+
+    <!-- 近15天巡检完成情况 -->
+    <div class="db-chart">
+      <div class="dbc-title"><span class="dot"></span>近15天巡检完成情况</div>
+      <div class="bar-wrap">
+        ${days.map(d=>`
+          <div class="bar-col">
+            <div class="bar-val">${d.count||''}</div>
+            <div class="bar-bar ${d.hasFail?'has-fail':(d.hasInspection?'done':'miss')}" style="height:${Math.max(4, d.count/maxDayCount*115)}px"></div>
+            <div class="bar-label">${d.label}</div>
+          </div>
+        `).join("")}
+      </div>
+      <div class="bar-legend">
+        <span><i class="ld"></i>全部合格</span>
+        <span><i class="lf"></i>有不合格</span>
+        <span><i class="lm"></i>未巡检</span>
+      </div>
+    </div>
+
+    <!-- 异常分布 -->
+    <div class="db-list">
+      <div class="dbc-title" style="margin-bottom:12px"><span class="dot" style="background:var(--red)"></span>不合格项分布 TOP 8</div>
+      ${failList.length===0
+        ? '<div style="text-align:center;color:var(--t3);padding:16px 0;font-size:13px;">暂无不合格记录 🎉</div>'
+        : failList.slice(0,8).map(([name,cnt])=>{
+            const pct = Math.round(cnt/totalFails*100);
+            return `<div class="l-row">
+              <span class="l-name">${name}</span>
+              <span class="l-count">${cnt}</span>
+              <div class="l-bar-bg"><div class="l-bar-fill" style="width:${pct}%"></div></div>
+            </div>`;
+          }).join("")
+      }
+    </div>
+
+    <!-- 每日明细 -->
+    <div class="db-list">
+      <div class="dbc-title" style="margin-bottom:10px"><span class="dot"></span>每日巡检明细（点击展开）</div>
+      ${days.filter(d=>d.hasInspection).reverse().map(d=>{
+        const dayId = "day_"+d.date.toISOString().slice(0,10).replace(/-/g,"");
+        const photoCount = d.recruits.reduce((s,r)=>s+((r.thumbs||[]).filter(Boolean).length||(r.photos||[]).filter(Boolean).length), 0);
+        return `
+        <div class="l-row day-toggle" onclick="toggleDay('${dayId}')" style="flex-wrap:wrap;cursor:pointer;align-items:center">
+          <span class="l-name" style="font-weight:500">${d.date.getMonth()+1}月${d.date.getDate()}日</span>
+          <span style="font-size:12px;color:var(--t2);margin-right:6px">${d.count}次巡检</span>
+          ${photoCount>0?`<span style="font-size:11px;color:var(--t3);margin-right:6px">📷${photoCount}</span>`:''}
+          ${d.hasFail?`<span style="font-size:12px;color:var(--red)">${d.failTotal}项不合格</span>`
+            :`<span style="font-size:12px;color:var(--green-d)">全部合格</span>`}
+          <span style="margin-left:auto;font-size:12px;color:var(--t3);transition:transform .2s" id="${dayId}_arrow">▼</span>
+        </div>
+        <div id="${dayId}" style="display:none;padding:0 0 8px 0">
+          ${d.recruits.map(r=>{
+            const validThumbs = (r.thumbs || []).filter(Boolean);
+            const localPhotos = (r.photos || []).filter(Boolean);
+            const allPhotos = validThumbs.length > 0
+              ? validThumbs.map(url=>({url, isLink:false}))
+              : localPhotos.map(src=>({url:src, isLink:false}));
+            return `
+            <div style="background:var(--bg2,#f8f8f8);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-weight:500">${r.area} · ${r.inspector}</span>
+                <span style="color:var(--t3)">${(r.time||'').slice(11,16)}</span>
+              </div>
+              <div style="color:var(--t2);margin-bottom:2px">
+                合格 ${(r.items||[]).length-(r.failCount||0)} / 不合格 ${r.failCount||0}
+              </div>
+              ${(r.failCount||0)>0 ? `<div style="color:var(--red);margin-bottom:2px">
+                ${(r.items||[]).filter(x=>x.status==='fail').map(x=>'· '+x.name+(x.desc?('：'+x.desc):'')).join('<br>')}
+              </div>`:''}
+              ${r.remark?`<div style="color:var(--t3);margin-bottom:4px">备注：${r.remark}</div>`:''}
+              ${allPhotos.length>0 ? `
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+                ${allPhotos.map((p,i)=>`
+                  <img src="${p.url}" style="width:56px;height:56px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #e0e0e0"
+                    onclick="showPhotoFull('${p.url.replace(/'/g,"\\'")}')" onerror="this.style.display='none'">
+                `).join("")}
+              </div>
+              `:''}
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("")||'<div style="text-align:center;color:var(--t3);padding:16px 0;font-size:13px;">无记录</div>'}
+    </div>
+    ${rectifyPending > 0 ? `
+    <!-- 待整改清单 -->
+    <div class="db-list">
+      <div class="dbc-title" style="margin-bottom:10px"><span class="dot" style="background:var(--red)"></span>待整改记录（${rectifyPending}条）</div>
+      ${records.filter(r=>(r.failCount||0)>0 && !(rectifyMap[r.id||r.submitAt]&&rectifyMap[r.id||r.submitAt].status==="done")).slice(0,10).map(r=>`
+        <div class="l-row" style="flex-wrap:wrap;align-items:flex-start;font-size:12px">
+          <span class="l-name">${r.area} · ${r.inspector} · ${(r.time||'').slice(0,16)}</span>
+          <span style="color:var(--red);white-space:nowrap">${r.failCount}项不合格</span>
+          <span onclick="markRectified(${r.id||r.submitAt},this);openDashboard()" style="color:var(--green);cursor:pointer;font-size:11px;margin-left:6px">标记整改</span>
+        </div>
+      `).join("")}
+    </div>
+    `:''}
+  `;
+
+  $("dbOverlay").classList.add("show");
+}
+
+function closeDashboard(){ $("dbOverlay").classList.remove("show"); }
+
+/* 看板内展开/收起每日记录 */
+function toggleDay(dayId){
+  const el = $(dayId);
+  const arrow = $(dayId+"_arrow");
+  if(el.style.display === "none" || !el.style.display){
+    el.style.display = "block";
+    if(arrow) arrow.style.transform = "rotate(180deg)";
+  }else{
+    el.style.display = "none";
+    if(arrow) arrow.style.transform = "rotate(0deg)";
+  }
+}
+
+/* 照片全屏查看 */
+function showPhotoFull(url){
+  // 创建临时遮罩查看大图
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);z-index:300;display:flex;align-items:center;justify-content:center;cursor:pointer";
+  const img = document.createElement("img");
+  img.src = url;
+  img.style.cssText = "max-width:95%;max-height:95%;object-fit:contain";
+  overlay.appendChild(img);
+  overlay.onclick = ()=>overlay.remove();
+  document.body.appendChild(overlay);
+}
+
+/* 手动同步：读云端 → 合并本地 → 推回云端 → 刷新看板 */
+async function syncNow(){
+  if(!CONFIG.SHARED_STORAGE_URL){ toast("请先「开启云汇总」配置云端地址"); return; }
+  toast("正在同步…");
+  const result = await cloudSync({});
+  if(result.ok){
+    toast("✅ 同步成功！云端共 " + result.cloudCount + " 条记录");
+    openDashboard();
+  }else{
+    toast("⚠️ 同步失败：" + (result.error || "网络异常"));
+  }
+}
+
+/* 云存储设置向导 */
+function showCloudSetup(){
+  const url = prompt(
+    "开启多设备数据自动汇总：\n\n"+
+    "1. 打开 jsonblob.com\n"+
+    "2. 在框里粘贴这行内容：[]\n"+
+    "3. 点下方 Create 按钮\n"+
+    "4. 复制跳转后浏览器地址栏里的完整网址\n"+
+    "5. 回到这里粘贴\n\n"+
+    "粘贴你复制的网址：",
+    ""
+  );
+  if(url && url.trim()){
+    let testUrl = url.trim();
+    // 自动转换：如果贴的是查看页网址（https://jsonblob.com/xxx），转成 API 地址
+    // jsonblob 查看页格式: https://jsonblob.com/<id>
+    // jsonblob API 格式:   https://jsonblob.com/api/jsonBlob/<id>
+    const m = testUrl.match(/jsonblob\.com\/(\d|[a-f])/i);
+    if(m && !testUrl.includes("/api/")){
+      // 提取纯 ID：去掉域名前缀、去掉 /json 后缀、去掉查询参数
+      let id = testUrl.replace(/^https?:\/\/jsonblob\.com\//, "").replace(/\/.*$/,"").replace(/[?#].*$/,"");
+      testUrl = "https://jsonblob.com/api/jsonBlob/" + id;
+    }
+    // 确保是 /api/jsonBlob/ 格式
+    if(!/\/api\/jsonBlob\//.test(testUrl)){
+      toast("网址格式不对，请确认是 jsonblob 的地址。\n正确格式：https://jsonblob.com/api/jsonBlob/xxxxxx");
+      return;
+    }
+    toast("正在测试连接…");
+    fetch(testUrl, {headers:{"Accept":"application/json"}})
+      .then(r=>{
+        if(r.ok){
+          localStorage.setItem("env_cloud_url", testUrl);
+          toast("✅ 连接成功！刷新页面后生效。\n所有手机填同一个地址即可自动汇总。");
+        }else{
+          toast("连接失败：HTTP " + r.status + "。请检查网址，确认已删掉旧内容并输入 [] 后点 Create。");
+        }
+      })
+      .catch(()=>{
+        toast("网络不通，可能原因：\n1. jsonblob 网站暂时不可用\n2. 你不在 jsonblob 页面复制，是在别处复制的\n请重新打开 jsonblob.com 操作一遍");
+      });
+  }
+}
+
+/* 导出数据 */
+function exportData(){
+  const records = getRecords();
+  if(records.length===0){ toast("没有可导出的数据"); return; }
+  // 导出时去掉大体积原始照片，保留缩略图以减小文件体积
+  const compact = records.map(r=>{
+    const {photos, ...rest} = r;
+    return rest;
+  });
+  const blob = new Blob([JSON.stringify(compact,null,2)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "巡检数据_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("数据已导出");
+}
+
+/* 导入合并 */
+function importData(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const incoming = JSON.parse(reader.result);
+      if(!Array.isArray(incoming)){ toast("数据格式错误"); return; }
+      const existing = getRecords();
+      const existIds = new Set(existing.map(r=>r.id||r.submitAt));
+      let added = 0;
+      incoming.forEach(r=>{
+        const rid = r.id||r.submitAt;
+        if(!existIds.has(rid)){
+          existing.push(r); added++;
+        }
+      });
+      existing.sort((a,b)=>new Date(b.submitAt||b.time)-new Date(a.submitAt||a.time));
+      localStorage.setItem("env_records", JSON.stringify(existing));
+      toast("导入完成：新增"+added+"条，跳过"+(incoming.length-added)+"条重复");
+      openDashboard();
+    }catch(e){ toast("文件解析失败："+e.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+}
+
+/* 生成分析报告 */
+async function generateReport(){
+  const records = CONFIG.SHARED_STORAGE_URL ? await getMergedRecords() : getRecords();
+  if(records.length===0){ toast("暂无数据可生成报告"); return; }
+
+  const totalInspections = records.length;
+  const totalFails = records.reduce((s,r)=>s+(r.failCount||0),0);
+  const totalItems = records.reduce((s,r)=>s+(r.items?r.items.length:0),0);
+  const passRate = totalItems>0?Math.round((totalItems-totalFails)/totalItems*100):100;
+
+  // 按区域统计
+  const areaMap = {};
+  records.forEach(r=>{
+    if(!areaMap[r.area]) areaMap[r.area] = { count:0, fails:0, items:0 };
+    areaMap[r.area].count++;
+    areaMap[r.area].fails += (r.failCount||0);
+    areaMap[r.area].items += (r.items?r.items.length:0);
+    if(!areaMap[r.area].last) areaMap[r.area].last = r.time||r.submitAt||"";
+  });
+
+  // 按检查项统计不合格
+  const failMap = {};
+  records.forEach(r=>{
+    if(r.items) r.items.forEach(it=>{
+      if(it.status==="fail"){
+        failMap[it.name] = (failMap[it.name]||0)+1;
+      }
+    });
+  });
+  const failList = Object.entries(failMap).sort((a,b)=>b[1]-a[1]);
+
+  // 按巡检人统计
+  const peopleMap = {};
+  records.forEach(r=>{
+    const p = r.inspector||"未知";
+    peopleMap[p] = (peopleMap[p]||0)+1;
+  });
+
+  // 整改统计
+  const rectifyMap = getRectifyMap();
+  let repRectifyTotal = 0, repRectifyDone = 0;
+  records.forEach(r=>{
+    if((r.failCount||0)>0){
+      repRectifyTotal++;
+      const rid = r.id||r.submitAt;
+      if(rectifyMap[rid] && rectifyMap[rid].status==="done") repRectifyDone++;
+    }
+  });
+
+  // 最近5条不合格详情
+  const recentFails = records.filter(r=>(r.failCount||0)>0).slice(0,5);
+
+  const now = new Date();
+  const reportDate = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+  const reportHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>环境巡检分析报告</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#1a1a1a;font-size:14px;line-height:1.6;max-width:700px;margin:0 auto;padding:20px;background:#f4f5f7}
+  .report{background:#fff;border-radius:12px;padding:28px 22px}
+  h1{font-size:20px;text-align:center;margin-bottom:6px}
+  .subtitle{text-align:center;color:#999;font-size:12px;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #07c160}
+  h2{font-size:16px;margin:20px 0 10px;padding-left:10px;border-left:3px solid #07c160}
+  .sum-box{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  .sum-item{background:#f8f9fa;border-radius:8px;padding:14px;text-align:center}
+  .sum-item .v{font-size:26px;font-weight:700}
+  .sum-item .l{font-size:12px;color:#666;margin-top:2px}
+  .sum-item.g{color:#07c160}
+  .sum-item.r{color:#fa5151}
+  .sum-item.o{color:#ff9d3b}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{border:1px solid #ececec;padding:8px 10px;text-align:left}
+  th{background:#f4f5f7;font-weight:500}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px}
+  .tag-pass{background:#e8f8ef;color:#07c160}
+  .tag-fail{background:#fdecec;color:#fa5151}
+  .bar-bg{background:#f4f4f4;height:6px;border-radius:3px;margin-top:3px}
+  .bar-fill{height:100%;background:#fa5151;border-radius:3px}
+  .footer{text-align:center;color:#bbb;font-size:11px;margin-top:24px;padding-top:14px;border-top:1px solid #f0f0f0}
+  @media print{.report{box-shadow:none}}
+</style></head>
+<body>
+<div class="report">
+  <h1>环境巡检分析报告</h1>
+  <div class="subtitle">报告生成时间：${reportDate} &nbsp;|&nbsp; 数据范围：最近 ${records.length} 次巡检 | 系统自动生成</div>
+
+  <h2>📊 整体概况</h2>
+  <div class="sum-box">
+    <div class="sum-item"><div class="v">${totalInspections}</div><div class="l">巡检总次数</div></div>
+    <div class="sum-item ${totalFails>0?'r':'g'}"><div class="v">${totalFails}</div><div class="l">不合格项数</div></div>
+    <div class="sum-item ${passRate>=90?'g':'o'}"><div class="v">${passRate}%</div><div class="l">整体合格率</div></div>
+    <div class="sum-item"><div class="v">${Object.keys(areaMap).length}</div><div class="l">覆盖区域数</div></div>
+  </div>
+
+  <h2>📋 区域巡检情况</h2>
+  <table>
+    <tr><th>区域</th><th>巡检次数</th><th>不合格项</th><th>区域合格率</th><th>最近巡检</th></tr>
+    ${Object.entries(areaMap).map(([a,d])=>{
+      const ar = d.items>0?Math.round((d.items-d.fails)/d.items*100):100;
+      return `<tr><td>${a}</td><td>${d.count}</td><td>${d.fails}</td><td>${ar}%</td><td>${d.last}</td></tr>`;
+    }).join("")}
+  </table>
+
+  <h2>⚠️ 不合格项 TOP 5</h2>
+  ${failList.length===0
+    ? '<p style="color:#07c160">🎉 所有巡检项目均合格，继续保持！</p>'
+    : `<table>
+        <tr><th>检查项</th><th>不合格次数</th><th>占比</th><th>频次分布</th></tr>
+        ${failList.slice(0,5).map(([n,c])=>{
+          const pct = Math.round(c/totalFails*100);
+          return `<tr><td>${n}</td><td style="color:#fa5151;font-weight:600">${c}</td><td>${pct}%</td><td><div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div></td></tr>`;
+        }).join("")}
+      </table>`
+  }
+
+  ${recentFails.length>0 ? `
+  <h2>🔍 最近不合格详情</h2>
+  ${recentFails.map((r,i)=>`
+    <div style="background:#fafafa;border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="font-weight:600;margin-bottom:4px">${r.area} · ${r.inspector} · ${r.time||r.submitAt}</div>
+      ${(r.items||[]).filter(it=>it.status==='fail').map(it=>
+        `<div style="font-size:13px;color:#666;margin:3px 0">· <span class="tag tag-fail">不合格</span> ${it.name}${it.desc?' — '+it.desc:''}</div>`
+      ).join("")}
+      ${r.remark?`<div style="font-size:12px;color:#999;margin-top:4px">备注：${r.remark}</div>`:''}
+    </div>
+  `).join("")}
+  `:''}
+
+  ${repRectifyTotal>0 ? `
+  <h2>✅ 整改追踪</h2>
+  <div class="sum-box">
+    <div class="sum-item ${repRectifyDone===repRectifyTotal?'g':'o'}"><div class="v">${repRectifyDone}/${repRectifyTotal}</div><div class="l">已整改</div></div>
+    <div class="sum-item ${repRectifyDone===repRectifyTotal?'g':'r'}"><div class="v">${repRectifyTotal-repRectifyDone}</div><div class="l">待整改</div></div>
+    <div class="sum-item ${repRectifyDone===repRectifyTotal?'g':'o'}"><div class="v">${repRectifyTotal>0?Math.round(repRectifyDone/repRectifyTotal*100):0}%</div><div class="l">整改完成率</div></div>
+  </div>
+  `:''}
+
+  <h2>👤 巡检人统计</h2>
+  <table>
+    <tr><th>巡检人</th><th>巡检次数</th><th>占比</th></tr>
+    ${Object.entries(peopleMap).sort((a,b)=>b[1]-a[1]).map(([p,c])=>
+      `<tr><td>${p}</td><td>${c}</td><td>${Math.round(c/totalInspections*100)}%</td></tr>`
+    ).join("")}
+  </table>
+
+  <div class="footer">本报告由环境巡检系统自动生成 · ${reportDate}</div>
+</div>
+</body></html>`;
+
+  const w = window.open("","_blank");
+  w.document.write(reportHTML);
+  w.document.close();
+  setTimeout(()=>w.print(), 300);
+  toast("报告已生成，可在新窗口打印或保存为PDF");
+}
+</script>
+</body>
+</html>
